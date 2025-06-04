@@ -1,0 +1,12 @@
+[package]
+name = "altostratus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam = "0.30.3"
+image = "0.25.6"
+
+[[example]]
+name = "basic_rendering"
+path = "examples/basic_rendering.rs"
