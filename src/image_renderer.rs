@@ -1,12 +1,12 @@
 use image::{RgbImage, Rgb};
-use crate::{Renderer, PointCloud, Camera, Color, Result, AltostratusError, Projector, DepthBuffer};
+use crate::{Renderer, PointCloud, Camera, Color, Result, AltostratusError, Projector, DepthBuffer, AxesConfig, Axes};
 
 /// Image renderer that outputs PNG images
 #[derive(Debug)]
 pub struct ImageRenderer {
     /// Image width in pixels
     width: u32,
-    /// Image height in pixels
+    /// Image height in pixels  
     height: u32,
     /// Background color for the image
     background_color: Color,
@@ -16,6 +16,8 @@ pub struct ImageRenderer {
     projector: Projector,
     /// Depth buffer for proper point ordering
     depth_buffer: DepthBuffer,
+    /// Axes configuration (None = no axes)
+    axes_config: Option<AxesConfig>,
 }
 
 impl ImageRenderer {
@@ -35,6 +37,7 @@ impl ImageRenderer {
             point_size: 2.0,
             projector,
             depth_buffer,
+            axes_config: None,
         })
     }
 
@@ -48,6 +51,37 @@ impl ImageRenderer {
         let mut renderer = Self::new(width, height)?;
         renderer.background_color = background_color;
         Ok(renderer)
+    }
+
+    /// Enables coordinate axes with the given configuration
+    ///
+    /// # Arguments
+    /// * `config` - Axes configuration
+    pub fn enable_axes(&mut self, config: AxesConfig) {
+        self.axes_config = Some(config);
+    }
+
+    /// Enables coordinate axes with default configuration
+    pub fn enable_default_axes(&mut self) {
+        self.axes_config = Some(AxesConfig::default());
+    }
+
+    /// Disables coordinate axes
+    pub fn disable_axes(&mut self) {
+        self.axes_config = None;
+    }
+
+    /// Gets the current axes configuration
+    pub fn axes_config(&self) -> Option<&AxesConfig> {
+        self.axes_config.as_ref()
+    }
+
+    /// Sets a custom axes configuration
+    ///
+    /// # Arguments
+    /// * `config` - New axes configuration (None to disable)
+    pub fn set_axes_config(&mut self, config: Option<AxesConfig>) {
+        self.axes_config = config;
     }
 
     /// Sets the background color
@@ -177,7 +211,21 @@ impl Renderer for ImageRenderer {
     /// * `points` - Point cloud to render
     /// * `camera` - Camera defining the view
     fn render(&mut self, points: &PointCloud, camera: &Camera) -> Result<Self::Output> {
-        if points.is_empty() {
+        // Combine user points with axes if enabled
+        let render_cloud = if let Some(ref axes_config) = self.axes_config {
+            let axes = Axes::new(axes_config.clone());
+            let axes_points = axes.generate_points();
+
+            let mut combined_cloud = points.clone();
+            for point in axes_points.iter() {
+                combined_cloud.add_point(*point);
+            }
+            combined_cloud
+        } else {
+            points.clone()
+        };
+
+        if render_cloud.is_empty() {
             // Return empty image with background color
             let mut image = RgbImage::new(self.width, self.height);
             let bg_rgb = Rgb([self.background_color.r, self.background_color.g, self.background_color.b]);
@@ -193,7 +241,7 @@ impl Renderer for ImageRenderer {
         render_camera.set_aspect_ratio(aspect_ratio)?;
 
         // Project all points to screen coordinates
-        let projected_points = self.projector.project_point_cloud(points, &render_camera);
+        let projected_points = self.projector.project_point_cloud(&render_cloud, &render_camera);
 
         if projected_points.is_empty() {
             // No visible points - return background
@@ -365,6 +413,7 @@ mod tests {
         assert_eq!(renderer.viewport_size(), (800, 600));
         assert_eq!(renderer.background_color(), Color::BLACK);
         assert_eq!(renderer.point_size(), 2.0);
+        assert!(renderer.axes_config().is_none());
 
         // Test invalid dimensions
         assert!(ImageRenderer::new(0, 600).is_err());
@@ -375,6 +424,36 @@ mod tests {
     fn test_image_renderer_with_background() {
         let renderer = ImageRenderer::with_background(800, 600, Color::WHITE).unwrap();
         assert_eq!(renderer.background_color(), Color::WHITE);
+        assert!(renderer.axes_config().is_none());
+    }
+
+    #[test]
+    fn test_axes_configuration() {
+        let mut renderer = ImageRenderer::new(800, 600).unwrap();
+
+        // Initially no axes
+        assert!(renderer.axes_config().is_none());
+
+        // Enable default axes
+        renderer.enable_default_axes();
+        assert!(renderer.axes_config().is_some());
+
+        // Enable custom axes
+        let custom_config = AxesConfig::new().with_length(10.0);
+        renderer.enable_axes(custom_config.clone());
+        assert!(renderer.axes_config().is_some());
+        assert_eq!(renderer.axes_config().unwrap().length, 10.0);
+
+        // Disable axes
+        renderer.disable_axes();
+        assert!(renderer.axes_config().is_none());
+
+        // Set axes config with Option
+        renderer.set_axes_config(Some(AxesConfig::default()));
+        assert!(renderer.axes_config().is_some());
+
+        renderer.set_axes_config(None);
+        assert!(renderer.axes_config().is_none());
     }
 
     #[test]
@@ -482,6 +561,38 @@ mod tests {
         assert!(has_red, "Should have red pixels");
         assert!(has_green, "Should have green pixels");
         assert!(has_blue, "Should have blue pixels");
+    }
+
+    #[test]
+    fn test_render_with_axes() {
+        let mut renderer = ImageRenderer::new(200, 200).unwrap();
+        renderer.enable_default_axes();
+
+        let mut cloud = PointCloud::new();
+        cloud.add_point_coords(0.0, 0.0, 0.0, Color::WHITE);
+
+        let camera = Camera::look_at(Vec3::new(0.0, 0.0, 5.0), Vec3::ZERO);
+
+        let image = renderer.render(&cloud, &camera).unwrap();
+
+        // Should have red, green, and blue pixels from axes
+        let red_pixel = Rgb([255, 0, 0]);
+        let green_pixel = Rgb([0, 255, 0]);
+        let blue_pixel = Rgb([0, 0, 255]);
+
+        let mut has_red = false;
+        let mut has_green = false;
+        let mut has_blue = false;
+
+        for pixel in image.pixels() {
+            if *pixel == red_pixel { has_red = true; }
+            if *pixel == green_pixel { has_green = true; }
+            if *pixel == blue_pixel { has_blue = true; }
+        }
+
+        assert!(has_red, "Should have red X-axis pixels");
+        assert!(has_green, "Should have green Y-axis pixels");
+        assert!(has_blue, "Should have blue Z-axis pixels");
     }
 
     #[test]

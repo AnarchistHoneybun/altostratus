@@ -10,3 +10,11 @@ image = "0.25.6"
 [[example]]
 name = "basic_rendering"
 path = "examples/basic_rendering.rs"
+
+[[example]]
+name = "spiral"
+path = "examples/spiral.rs"
+
+[[example]]
+name = "axes_test"
+path = "examples/axes_test.rs"

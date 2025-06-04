@@ -4,10 +4,12 @@ use glam::Vec3;
 pub mod camera;
 pub mod renderer;
 pub mod image_renderer;
+pub mod axes;
 
 pub use camera::Camera;
 pub use renderer::{Renderer, ScreenPoint, Projector, FrustumCuller, DepthBuffer};
 pub use image_renderer::{ImageRenderer, AdvancedImageRenderer, PointStyle};
+pub use axes::{Axes, AxesConfig, WithAxes};
 
 /// Simple RGB color representation with 8-bit channels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
