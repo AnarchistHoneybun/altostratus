@@ -1,5 +1,5 @@
+use crate::{Color, PointCloud};
 use glam::Vec3;
-use crate::{Point3D, Color, PointCloud};
 
 /// Configuration for 3D coordinate axes
 #[derive(Debug, Clone)]

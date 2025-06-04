@@ -18,3 +18,15 @@ path = "examples/spiral.rs"
 [[example]]
 name = "axes_test"
 path = "examples/axes_test.rs"
+
+[[example]]
+name = "ascii_rendering"
+path = "examples/ascii_rendering.rs"
+
+[[example]]
+name = "simple_ascii"
+path = "examples/simple_ascii.rs"
+
+[[example]]
+name = "spiral_ascii"
+path = "examples/spiral_ascii.rs"

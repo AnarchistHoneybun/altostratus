@@ -1,4 +1,4 @@
-use altostratus::{PointCloud, Camera, ImageRenderer, Renderer, Color};
+use altostratus::{PointCloud, Camera, ImageRenderer, Renderer, Color, AxesConfig};
 use glam::Vec3;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,7 +51,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     renderer.set_background_color(Color::new(20, 20, 40)); // Dark blue background
     renderer.set_point_size(4.0)?; // Larger points for visibility
 
-    println!("Rendering image...");
+    // Enable coordinate axes with custom configuration
+    let axes_config = AxesConfig::new()
+        .with_length(3.0)  // Shorter axes for better framing
+        .with_colors(Color::new(255, 100, 100), Color::new(100, 255, 100), Color::new(100, 100, 255)) // Softer colors
+        .with_ticks(1.0, 0.15)  // Tick marks every unit
+        .with_arrow_size(0.25)
+        .with_resolution(15.0); // Higher resolution for smoother lines
+
+    renderer.enable_axes(axes_config);
+
+    println!("Rendering image with coordinate axes...");
 
     // Render the image
     let image = renderer.render(&cloud, &camera)?;
@@ -64,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Image dimensions: {}x{}", image.width(), image.height());
 
     // Demonstrate camera manipulation and re-rendering
-    println!("\nDemonstrating camera controls...");
+    println!("\nDemonstrating camera controls with axes...");
 
     // Orbit around the scene
     camera.orbit(std::f32::consts::PI / 4.0, 0.0)?; // 45 degrees yaw
@@ -78,15 +88,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     image3.save("output_zoomed.png")?;
     println!("Saved zoomed view to: output_zoomed.png");
 
-    // Change point size and background
+    // Change point size and background but keep axes
     renderer.set_point_size(8.0)?;
     renderer.set_background_color(Color::WHITE);
     let image4 = renderer.render(&cloud, &camera)?;
     image4.save("output_large_points.png")?;
     println!("Saved large points view to: output_large_points.png");
 
+    // Show example without axes for comparison
+    renderer.disable_axes();
+    let image5 = renderer.render(&cloud, &camera)?;
+    image5.save("output_no_axes.png")?;
+    println!("Saved view without axes to: output_no_axes.png");
+
     println!("\nExample complete! Check the generated PNG files.");
-    
+    println!("All images include coordinate axes:");
+    println!("  - Red axis = X direction");
+    println!("  - Green axis = Y direction");
+    println!("  - Blue axis = Z direction");
+    println!("  - Tick marks show unit spacing");
+    println!("  - Arrowheads and X/Y/Z labels indicate positive directions");
+
+    // Now run the additional examples
     generate_spiral_scene()?;
     test_rendering_styles()?;
 
