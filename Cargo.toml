@@ -30,3 +30,7 @@ path = "examples/simple_ascii.rs"
 [[example]]
 name = "spiral_ascii"
 path = "examples/spiral_ascii.rs"
+
+[[example]]
+name = "lorenz"
+path = "examples/lorenz.rs"

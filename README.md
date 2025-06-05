@@ -4,6 +4,14 @@
 
 A 3d plotting library for Rust with one purpose, to render points in a cartesian system. You might wonder why you'd rather not use something more general, with better code, better suited to this purpose. I do too.
 
+## gallery
+
+Here are some example outputs from Altostratus:
+
+| ![Image 1](public/test_bg_blue.png) | ![Image 2](public/test_size_2.png) | ![Image 3](public/test_size_8.png) |
+|-------------------------------|-------------------------------|-------------------------------|
+| ![Image 4](public/spiral_noax.png) | ![Image 5](public/spiral.png) | ![Image 6](public/lorenz_rk4_hq.png) |
+
 ## features
 
 - display points in 3d space
