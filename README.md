@@ -34,7 +34,7 @@ image.save("plot.png")?;
 ## quick start
 
 ```bash
-git clone https://github.com/username/altostratus
+git clone https://github.com/AnarchistHoneybun/altostratus
 cd altostratus
 
 # Run tests

@@ -1,6 +1,5 @@
 use altostratus::{PointCloud, Camera, AsciiRenderer, Renderer, Color, AxesConfig, CharacterSet};
 use glam::Vec3;
-use std::io;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Altostratus - ASCII Spiral Scene");

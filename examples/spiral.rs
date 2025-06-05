@@ -7,17 +7,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cloud = PointCloud::new();
 
     // Create a 3D spiral
-    let num_points = 300;
+    let num_points = 1000;
     println!("Generating {} points in a spiral pattern...", num_points);
 
     for i in 0..num_points {
         let t = i as f32 / num_points as f32;
-        let angle = t * 16.0 * std::f32::consts::PI; // 4 full rotations
+        let angle = t * 16.0 * std::f32::consts::PI;
         let radius = 3.0 * t; // Expanding radius
 
         let x = radius * angle.cos();
         let y = radius * angle.sin();
-        let z = t * 6.0 - 3.0; // Height varies from -3 to +3
+        let z = t * 6.0; 
 
         // Color varies along the spiral (HSV-like)
         let hue = t * 360.0;
@@ -34,18 +34,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Vec3::new(8.0, 8.0, 8.0),
         Vec3::new(0.0, 0.0, 0.0),
     );
-    camera.set_fov_degrees(60.0)?;
+    camera.set_fov_degrees(70.0)?;
 
     println!("Camera positioned at {:?}, looking at origin", camera.position);
 
     // Create renderer
     let mut renderer = ImageRenderer::new(1024, 768)?;
     renderer.set_background_color(Color::BLACK);
-    renderer.set_point_size(3.0)?;
+    renderer.set_point_size(2.0)?;
 
     // Enable coordinate axes to help visualize the 3D spiral
     let axes_config = AxesConfig::new()
-        .with_length(4.0)  // Match spiral size
+        .with_length(7.0)  // Match spiral size
         .with_colors(
             Color::new(255, 80, 80),   // Softer red
             Color::new(80, 255, 80),   // Softer green
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Saved side view to: spiral_side.png");
 
     // Top view
-    camera.set_position(Vec3::new(0.0, 15.0, 0.0));
+    camera.set_position(Vec3::new(0.1, 15.0, 0.0));
     let image_top = renderer.render(&cloud, &camera)?;
     image_top.save("spiral_top.png")?;
     println!("✓ Saved top view to: spiral_top.png");
