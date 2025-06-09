@@ -22,11 +22,11 @@ const INITIAL_DISTANCE_MULTIPLIER: f32 = 1.5;
 const SCROLL_MULTIPLIER: f32 = 0.03;
 const PAN_MULTIPLIER: f32 = 0.1;
 const HELP_MSG: &str = "\
-\x1b[1mPoint Cloud Viewer\x1b[0m: Visualize 3D point files in the terminal!
+\x1b[1mAltostratus\x1b[0m: Visualize 3D point files in the terminal!
 
 \x1b[1mUsage\x1b[0m:
-    \"pointview <filepath.txt>\": Interactively view the provided point file.
-    \"pointview --h\", \"pointview --help\", \"pointview -h\", \"pointview -help\", \"pointview\": Help and info.
+    \"altostratus <filepath.txt>\": Interactively view the provided point file.
+    \"altostratus --h\", \"altostratus --help\", \"altostratus -h\", \"altostratus -help\", \"altostratus\": Help and info.
 
 \x1b[1mFile Format\x1b[0m:
     Each line should contain three space-separated coordinates: x y z
