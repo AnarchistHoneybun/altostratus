@@ -4,33 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-glam = "0.30.3"
-image = "0.25.6"
-
-[[example]]
-name = "basic_rendering"
-path = "examples/basic_rendering.rs"
-
-[[example]]
-name = "spiral"
-path = "examples/spiral.rs"
-
-[[example]]
-name = "axes_test"
-path = "examples/axes_test.rs"
-
-[[example]]
-name = "ascii_rendering"
-path = "examples/ascii_rendering.rs"
-
-[[example]]
-name = "simple_ascii"
-path = "examples/simple_ascii.rs"
-
-[[example]]
-name = "spiral_ascii"
-path = "examples/spiral_ascii.rs"
-
-[[example]]
-name = "lorenz"
-path = "examples/lorenz.rs"
+crossterm = "0.29.0"
