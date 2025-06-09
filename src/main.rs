@@ -35,8 +35,87 @@ const HELP_MSG: &str = "\
     Scroll down to zoom out, scroll up to zoom in.
     Click and drag the mouse to rotate around the data.
     Click and drag the mouse while holding [ctrl] to pan.
+    Press [/] to enter command mode and load new datasets.
     Press [Ctrl+C] to exit.
 ";
+
+// Command mode state
+struct CommandState {
+    active: bool,
+    buffer: String,
+    error_message: Option<String>,
+}
+
+impl CommandState {
+    fn new() -> Self {
+        CommandState {
+            active: false,
+            buffer: String::new(),
+            error_message: None,
+        }
+    }
+
+    fn enter_command_mode(&mut self) {
+        self.active = true;
+        self.buffer.clear();
+        self.error_message = None;
+    }
+
+    fn exit_command_mode(&mut self) {
+        self.active = false;
+        self.buffer.clear();
+    }
+
+    fn add_char(&mut self, c: char) {
+        self.buffer.push(c);
+    }
+
+    fn backspace(&mut self) {
+        self.buffer.pop();
+    }
+
+    fn execute_command(&mut self, point_cloud: &mut PointCloud) -> bool {
+        let command = self.buffer.trim();
+        
+        if command.starts_with("load ") {
+            let path = command.strip_prefix("load ").unwrap().trim();
+            match PointCloud::from_file(path) {
+                Ok(new_cloud) => {
+                    if new_cloud.points.is_empty() {
+                        self.error_message = Some("No points found in file".to_string());
+                        return false;
+                    }
+                    
+                    // Add new points to existing point cloud
+                    point_cloud.points.extend(new_cloud.points);
+                    
+                    // Regenerate axes based on combined dataset
+                    point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
+                    
+                    self.exit_command_mode();
+                    return true; // Signal to reset view parameters
+                }
+                Err(e) => {
+                    self.error_message = Some(format!("Failed to load: {}", e));
+                    return false;
+                }
+            }
+        } else if !command.is_empty() {
+            self.error_message = Some("Unknown command".to_string());
+            return false;
+        }
+        
+        false
+    }
+
+    fn get_display_text(&self) -> String {
+        if let Some(ref error) = self.error_message {
+            format!("ERROR: {} (press ESC to continue)", error)
+        } else {
+            format!("Command: {}_", self.buffer)
+        }
+    }
+}
 
 fn graceful_close() -> ! {
     execute!(
@@ -67,7 +146,7 @@ fn main() {
     }
     
     let help_mode = args.len() == 1 || 
-        ["-h", "-help", "--h", "--help"].map(String::from).contains(&args[1]);
+        ["-h", "--help"].map(String::from).contains(&args[1]);
 
     if help_mode {
         execute!(io::stdout(), style::Print(HELP_MSG)).unwrap();
@@ -84,7 +163,7 @@ fn main() {
     let file_path = &args[1];
     
     // Load point cloud
-    let point_cloud = match PointCloud::from_file(file_path) {
+    let mut point_cloud = match PointCloud::from_file(file_path) {
         Ok(cloud) => cloud,
         Err(error) => error_close(&error)
     };
@@ -94,8 +173,8 @@ fn main() {
     }
 
     // Get dimensions
-    let center = point_cloud.get_center();
-    let diagonal = point_cloud.get_diagonal().max(1.0); // Ensure we don't get zero diagonal
+    let mut center = point_cloud.get_center();
+    let mut diagonal = point_cloud.get_diagonal().max(1.0); // Ensure we don't get zero diagonal
 
     // Setup camera
     let mut camera = Camera::new(
@@ -114,6 +193,9 @@ fn main() {
     let mut last_mouse_position = Point2D::new(0, 0);
     let mut center_point = center;
 
+    // Setup command state
+    let mut command_state = CommandState::new();
+
     // Start main loop
     loop {
         let start = time::Instant::now();
@@ -125,14 +207,47 @@ fn main() {
             if let Ok(event) = event::read() {
                 match event {
                     event::Event::Key(key_event) => {
-                        let is_ctrl_c = key_event.modifiers == event::KeyModifiers::CONTROL
-                            && key_event.code == event::KeyCode::Char('c');
+                        if command_state.active {
+                            // Handle command mode input
+                            match key_event.code {
+                                event::KeyCode::Esc => {
+                                    command_state.exit_command_mode();
+                                }
+                                event::KeyCode::Enter => {
+                                    let should_reset_view = command_state.execute_command(&mut point_cloud);
+                                    if should_reset_view {
+                                        // Reset view parameters for new dataset
+                                        center = point_cloud.get_center();
+                                        diagonal = point_cloud.get_diagonal().max(1.0);
+                                        view_yaw = std::f32::consts::PI / 2.0;
+                                        view_pitch = 0.0;
+                                        distance_to_data = diagonal * INITIAL_DISTANCE_MULTIPLIER;
+                                        center_point = center;
+                                    }
+                                }
+                                event::KeyCode::Backspace => {
+                                    command_state.backspace();
+                                }
+                                event::KeyCode::Char(c) => {
+                                    command_state.add_char(c);
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            // Handle normal mode input
+                            let is_ctrl_c = key_event.modifiers == event::KeyModifiers::CONTROL
+                                && key_event.code == event::KeyCode::Char('c');
 
-                        if is_ctrl_c { graceful_close() }
+                            if is_ctrl_c { 
+                                graceful_close() 
+                            } else if key_event.code == event::KeyCode::Char('/') {
+                                command_state.enter_command_mode();
+                            }
+                        }
                     }
 
-                    // Mouse controls
-                    event::Event::Mouse(mouse_event) => {
+                    // Mouse controls (only when not in command mode)
+                    event::Event::Mouse(mouse_event) if !command_state.active => {
                         let (x, y) = (mouse_event.column, mouse_event.row);
                         match mouse_event.kind {
 
@@ -227,21 +342,25 @@ fn main() {
         }
 
         // Status message
-        let fps_msg = format!("fps: {:3.0}", 1. / start.elapsed().as_secs_f32());
-        let resolution_msg = format!(
-            "resolution: {} x {}",
-            camera.screen.width,
-            camera.screen.height,
-        );
-        let points_msg = format!("points: {}", point_cloud.points.len());
+        let final_msg = if command_state.active || command_state.error_message.is_some() {
+            command_state.get_display_text()
+        } else {
+            let fps_msg = format!("fps: {:3.0}", 1. / start.elapsed().as_secs_f32());
+            let resolution_msg = format!(
+                "resolution: {} x {}",
+                camera.screen.width,
+                camera.screen.height,
+            );
+            let points_msg = format!("points: {}", point_cloud.points.len());
 
-        let full_msg = format!("{} | {} | {}", points_msg, resolution_msg, fps_msg);
-        let short_msg = format!("{} | {}", points_msg, fps_msg);
+            let full_msg = format!("{} | {} | {} | Press '/' for commands", points_msg, resolution_msg, fps_msg);
+            let short_msg = format!("{} | {} | '/' for commands", points_msg, fps_msg);
 
-        let final_msg = match terminal::size().unwrap().0 as usize {
-            width if width > full_msg.len() => full_msg,
-            width if width > short_msg.len() => short_msg,
-            _ => points_msg,
+            match terminal::size().unwrap().0 as usize {
+                width if width > full_msg.len() => full_msg,
+                width if width > short_msg.len() => short_msg,
+                _ => format!("{} | '/'", points_msg),
+            }
         };
 
         execute!(

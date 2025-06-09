@@ -346,6 +346,10 @@ points.push(Point3D::new(file_x, file_z, file_y));
         Ok(PointCloud { points, axes })
     }
 
+    pub fn generate_axes_public(points: &[Point3D]) -> Vec<AxisDecoration> {
+        Self::generate_axes(points)
+    }
+
     fn generate_axes(points: &[Point3D]) -> Vec<AxisDecoration> {
         let max_distance = if points.is_empty() {
             1.0
