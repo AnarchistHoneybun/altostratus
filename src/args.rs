@@ -82,6 +82,10 @@ pub fn print_detailed_help() {
     Click and drag the mouse while holding [ctrl] to pan.
     Press [/] to enter command mode and load new datasets.
     Press [Ctrl+C] to exit.
+
+\x1b[1mCommands\x1b[0m:
+    /load <filepath>: Load additional point cloud file
+    /clear: Remove all loaded points from the visualization
 ";
     
     print!("{}", HELP_MSG);

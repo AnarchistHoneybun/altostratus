@@ -86,6 +86,15 @@ impl CommandState {
                     return false;
                 }
             }
+        } else if command == "clear" {
+            // Clear all points from the point cloud
+            point_cloud.points.clear();
+            
+            // Regenerate axes (will use minimum length since no points)
+            point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
+            
+            self.exit_command_mode();
+            return true; // Signal to reset view parameters
         } else if !command.is_empty() {
             self.error_message = Some("Unknown command".to_string());
             return false;

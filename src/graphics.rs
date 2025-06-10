@@ -2,7 +2,9 @@ use std::*;
 use std::ops;
 use crossterm::{execute, terminal, cursor, style};
 
+// Graphics rendering constants
 const DEFAULT_TERMINAL_DIMENSIONS: (u16, u16) = (80, 24);
+const MIN_AXIS_LENGTH: f32 = 2.0;
 
 // Simple 3d point wrapper.
 #[derive(Copy, Clone)]
@@ -352,11 +354,14 @@ points.push(Point3D::new(file_x, file_z, file_y));
 
     fn generate_axes(points: &[Point3D]) -> Vec<AxisDecoration> {
         let max_distance = if points.is_empty() {
-            1.0
+            MIN_AXIS_LENGTH
         } else {
-            points.iter()
+            let furthest_point_distance = points.iter()
                 .map(|p| (p.x.powi(2) + p.y.powi(2) + p.z.powi(2)).sqrt())
-                .fold(0.0, f32::max) * 1.1 // 10% beyond furthest point
+                .fold(0.0, f32::max);
+            
+            // Use minimum axis length or 110% of furthest point, whichever is larger
+            (furthest_point_distance * 1.1).max(MIN_AXIS_LENGTH)
         };
 
         let origin = Point3D::new(0., 0., 0.);
