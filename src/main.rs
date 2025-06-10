@@ -13,6 +13,9 @@ use crossterm::{
 mod graphics;
 use graphics::*;
 
+mod args;
+use args::*;
+
 // Config
 const VIEWPORT_FOV: f32 = 1.7;
 const VIEWPORT_DISTANCE: f32 = 0.1;
@@ -21,23 +24,6 @@ const MOUSE_SPEED_MULTIPLIER: f32 = 30.;
 const INITIAL_DISTANCE_MULTIPLIER: f32 = 1.5;
 const SCROLL_MULTIPLIER: f32 = 0.03;
 const PAN_MULTIPLIER: f32 = 0.1;
-const HELP_MSG: &str = "\
-\x1b[1mAltostratus\x1b[0m: Visualize 3D point files in the terminal!
-
-\x1b[1mUsage\x1b[0m:
-    \"altostratus <filepath.txt>\": Interactively view the provided point file.
-    \"altostratus --h\", \"altostratus --help\", \"altostratus -h\", \"altostratus -help\", \"altostratus\": Help and info.
-
-\x1b[1mFile Format\x1b[0m:
-    Each line should contain three space-separated coordinates: x y z
-
-\x1b[1mControls\x1b[0m:
-    Scroll down to zoom out, scroll up to zoom in.
-    Click and drag the mouse to rotate around the data.
-    Click and drag the mouse while holding [ctrl] to pan.
-    Press [/] to enter command mode and load new datasets.
-    Press [Ctrl+C] to exit.
-";
 
 // Command mode state
 struct CommandState {
@@ -135,24 +121,53 @@ fn error_close(msg: &dyn fmt::Display) -> ! {
     graceful_close()
 }
 
-fn main() {
-    // Parse arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 2 { 
-        error_close(&"Please supply only one point file path to visualize.") 
-    }
-    if args.is_empty() { 
-        error_close(&"Error parsing arguments.") 
+fn load_multiple_files(file_paths: &[String]) -> Result<PointCloud, Box<dyn error::Error>> {
+    let mut combined_points = Vec::new();
+    
+    for path in file_paths {
+        match PointCloud::from_file(path) {
+            Ok(cloud) => {
+                if cloud.points.is_empty() {
+                    eprintln!("Warning: No points found in file: {}", path);
+                    continue;
+                }
+                let points_count = cloud.points.len();
+                combined_points.extend(cloud.points);
+                println!("Loaded {} points from {}", points_count, path);
+            }
+            Err(e) => {
+                return Err(format!("Failed to load {}: {}", path, e).into());
+            }
+        }
     }
     
-    let help_mode = args.len() == 1 || 
-        ["-h", "--help"].map(String::from).contains(&args[1]);
-
-    if help_mode {
-        execute!(io::stdout(), style::Print(HELP_MSG)).unwrap();
-        graceful_close();
+    if combined_points.is_empty() {
+        return Err("No points found in any of the provided files".into());
     }
-        
+    
+    let axes = PointCloud::generate_axes_public(&combined_points);
+    Ok(PointCloud { points: combined_points, axes })
+}
+
+fn main() {
+    // Parse command line arguments
+    match parse_arguments() {
+        ParseResult::ShowUsage => {
+            print_usage();
+            graceful_close();
+        }
+        ParseResult::ShowDetailedHelp => {
+            print_detailed_help();
+            graceful_close();
+        }
+        ParseResult::LoadFiles(file_paths) => {
+            // Continue with the main application
+            run_application(file_paths);
+        }
+    }
+}
+
+fn run_application(file_paths: Vec<String>) {
     terminal::enable_raw_mode().unwrap();
     execute!(
         io::stdout(),
@@ -160,16 +175,14 @@ fn main() {
         event::EnableMouseCapture,
     ).unwrap();
 
-    let file_path = &args[1];
-    
-    // Load point cloud
-    let mut point_cloud = match PointCloud::from_file(file_path) {
+    // Load point cloud(s)
+    let mut point_cloud = match load_multiple_files(&file_paths) {
         Ok(cloud) => cloud,
         Err(error) => error_close(&error)
     };
 
     if point_cloud.points.is_empty() {
-        error_close(&"No points found in file");
+        error_close(&"No points found in any files");
     }
 
     // Get dimensions

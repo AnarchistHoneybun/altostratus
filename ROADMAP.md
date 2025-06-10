@@ -1,3 +1,3 @@
 ## planned tasks for altostratus
 
-- [] migrate command parsing to clap
+- [x] migrate command parsing to clap
