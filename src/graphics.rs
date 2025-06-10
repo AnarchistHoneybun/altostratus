@@ -4,7 +4,7 @@ use crossterm::{execute, terminal, cursor, style};
 
 // Graphics rendering constants
 const DEFAULT_TERMINAL_DIMENSIONS: (u16, u16) = (80, 24);
-const MIN_AXIS_LENGTH: f32 = 2.0;
+const MIN_AXIS_LENGTH: f32 = 5.0;
 
 // Simple 3d point wrapper.
 #[derive(Copy, Clone)]
@@ -326,21 +326,75 @@ impl PointCloud {
         let content = fs::read_to_string(path)?;
         let mut points = Vec::new();
 
-        for line in content.lines() {
+        for (line_num, line) in content.lines().enumerate() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') { continue; }
             
-            let coords: Vec<&str> = line.split_whitespace().collect();
-            if coords.len() != 3 {
-                return Err(format!("Invalid line format: {}", line).into());
-            }
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.is_empty() { continue; }
             
-            let file_x: f32 = coords[0].parse()?;
-let file_y: f32 = coords[1].parse()?;
-let file_z: f32 = coords[2].parse()?;
+            match parts[0] {
+                "p" => {
+                    // Point format: p x y z
+                    if parts.len() != 4 {
+                        return Err(format!("Invalid point format on line {}: {}", line_num + 1, line).into());
+                    }
+                    
+                    let file_x: f32 = parts[1].parse()
+                        .map_err(|_| format!("Invalid x coordinate on line {}: {}", line_num + 1, parts[1]))?;
+                    let file_y: f32 = parts[2].parse()
+                        .map_err(|_| format!("Invalid y coordinate on line {}: {}", line_num + 1, parts[2]))?;
+                    let file_z: f32 = parts[3].parse()
+                        .map_err(|_| format!("Invalid z coordinate on line {}: {}", line_num + 1, parts[3]))?;
 
-// Remap coordinates: file_z becomes viewer_y (up axis)
-points.push(Point3D::new(file_x, file_z, file_y));
+                    // Remap coordinates: file_z becomes viewer_y (up axis)
+                    points.push(Point3D::new(file_x, file_z, file_y));
+                },
+                
+                "l" => {
+                    // Line format: l x1 y1 z1 x2 y2 z2
+                    if parts.len() != 7 {
+                        return Err(format!("Invalid line format on line {}: {}", line_num + 1, line).into());
+                    }
+                    
+                    let x1: f32 = parts[1].parse()
+                        .map_err(|_| format!("Invalid x1 coordinate on line {}: {}", line_num + 1, parts[1]))?;
+                    let y1: f32 = parts[2].parse()
+                        .map_err(|_| format!("Invalid y1 coordinate on line {}: {}", line_num + 1, parts[2]))?;
+                    let z1: f32 = parts[3].parse()
+                        .map_err(|_| format!("Invalid z1 coordinate on line {}: {}", line_num + 1, parts[3]))?;
+                    let x2: f32 = parts[4].parse()
+                        .map_err(|_| format!("Invalid x2 coordinate on line {}: {}", line_num + 1, parts[4]))?;
+                    let y2: f32 = parts[5].parse()
+                        .map_err(|_| format!("Invalid y2 coordinate on line {}: {}", line_num + 1, parts[5]))?;
+                    let z2: f32 = parts[6].parse()
+                        .map_err(|_| format!("Invalid z2 coordinate on line {}: {}", line_num + 1, parts[6]))?;
+
+                    // Convert line to points using LINE_DENSITY
+                    let line_points = Self::line_to_points(
+                        Point3D::new(x1, z1, y1), // Remap coordinates
+                        Point3D::new(x2, z2, y2)  // Remap coordinates
+                    );
+                    points.extend(line_points);
+                },
+                
+                _ => {
+                    // Legacy format: assume three numbers are x y z coordinates
+                    if parts.len() != 3 {
+                        return Err(format!("Invalid format on line {}: {}. Expected 'p x y z', 'l x1 y1 z1 x2 y2 z2', or legacy 'x y z'", line_num + 1, line).into());
+                    }
+                    
+                    let file_x: f32 = parts[0].parse()
+                        .map_err(|_| format!("Invalid x coordinate on line {}: {}", line_num + 1, parts[0]))?;
+                    let file_y: f32 = parts[1].parse()
+                        .map_err(|_| format!("Invalid y coordinate on line {}: {}", line_num + 1, parts[1]))?;
+                    let file_z: f32 = parts[2].parse()
+                        .map_err(|_| format!("Invalid z coordinate on line {}: {}", line_num + 1, parts[2]))?;
+
+                    // Remap coordinates: file_z becomes viewer_y (up axis)
+                    points.push(Point3D::new(file_x, file_z, file_y));
+                }
+            }
         }
 
         let axes = Self::generate_axes(&points);
@@ -350,6 +404,38 @@ points.push(Point3D::new(file_x, file_z, file_y));
 
     pub fn generate_axes_public(points: &[Point3D]) -> Vec<AxisDecoration> {
         Self::generate_axes(points)
+    }
+
+    fn line_to_points(start: Point3D, end: Point3D) -> Vec<Point3D> {
+        // Calculate line length
+        let dx = end.x - start.x;
+        let dy = end.y - start.y;
+        let dz = end.z - start.z;
+        let length = (dx*dx + dy*dy + dz*dz).sqrt();
+        
+        if length == 0.0 {
+            return vec![start]; // Degenerate line, just return start point
+        }
+        
+        // Calculate number of points needed based on LINE_DENSITY
+        // Import LINE_DENSITY from main module
+        const LINE_DENSITY: f32 = 10.0; // Points per unit length
+        let num_points = (length * LINE_DENSITY).max(2.0) as usize; // At least 2 points
+        
+        let mut points = Vec::with_capacity(num_points);
+        
+        // Generate points along the line
+        for i in 0..num_points {
+            let t = i as f32 / (num_points - 1) as f32; // Parameter from 0 to 1
+            let point = Point3D::new(
+                start.x + t * dx,
+                start.y + t * dy,
+                start.z + t * dz,
+            );
+            points.push(point);
+        }
+        
+        points
     }
 
     fn generate_axes(points: &[Point3D]) -> Vec<AxisDecoration> {

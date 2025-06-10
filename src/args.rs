@@ -74,7 +74,13 @@ pub fn print_detailed_help() {
     \"altostratus\": Show usage examples.
 
 \x1b[1mFile Format\x1b[0m:
-    Each line should contain three space-separated coordinates: x y z
+    Mixed format supporting points and lines:
+    p x y z                    - Point at coordinates (x, y, z)
+    l x1 y1 z1 x2 y2 z2        - Line from (x1, y1, z1) to (x2, y2, z2)
+    x y z                      - Legacy point format (backwards compatible)
+    
+    Lines are rendered as dense point sequences for smooth visualization.
+    Comments (lines starting with #) and empty lines are ignored.
 
 \x1b[1mControls\x1b[0m:
     Scroll down to zoom out, scroll up to zoom in.

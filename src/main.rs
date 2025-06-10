@@ -24,6 +24,7 @@ const MOUSE_SPEED_MULTIPLIER: f32 = 30.;
 const INITIAL_DISTANCE_MULTIPLIER: f32 = 1.5;
 const SCROLL_MULTIPLIER: f32 = 0.03;
 const PAN_MULTIPLIER: f32 = 0.1;
+// const LINE_DENSITY: f32 = 10.0; // Points per unit length for line rendering
 
 // Command mode state
 struct CommandState {
@@ -79,7 +80,7 @@ impl CommandState {
                     point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
                     
                     self.exit_command_mode();
-                    return true; // Signal to reset view parameters
+                    return false; // Don't reset view parameters
                 }
                 Err(e) => {
                     self.error_message = Some(format!("Failed to load: {}", e));
@@ -94,7 +95,7 @@ impl CommandState {
             point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
             
             self.exit_command_mode();
-            return true; // Signal to reset view parameters
+            return false; // Don't reset view parameters
         } else if !command.is_empty() {
             self.error_message = Some("Unknown command".to_string());
             return false;
@@ -195,8 +196,8 @@ fn run_application(file_paths: Vec<String>) {
     }
 
     // Get dimensions
-    let mut center = point_cloud.get_center();
-    let mut diagonal = point_cloud.get_diagonal().max(1.0); // Ensure we don't get zero diagonal
+    let center = point_cloud.get_center();
+    let diagonal = point_cloud.get_diagonal().max(1.0); // Ensure we don't get zero diagonal
 
     // Setup camera
     let mut camera = Camera::new(
@@ -236,16 +237,7 @@ fn run_application(file_paths: Vec<String>) {
                                     command_state.exit_command_mode();
                                 }
                                 event::KeyCode::Enter => {
-                                    let should_reset_view = command_state.execute_command(&mut point_cloud);
-                                    if should_reset_view {
-                                        // Reset view parameters for new dataset
-                                        center = point_cloud.get_center();
-                                        diagonal = point_cloud.get_diagonal().max(1.0);
-                                        view_yaw = std::f32::consts::PI / 2.0;
-                                        view_pitch = 0.0;
-                                        distance_to_data = diagonal * INITIAL_DISTANCE_MULTIPLIER;
-                                        center_point = center;
-                                    }
+                                    command_state.execute_command(&mut point_cloud);
                                 }
                                 event::KeyCode::Backspace => {
                                     command_state.backspace();
