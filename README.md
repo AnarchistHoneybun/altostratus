@@ -8,7 +8,7 @@ A 3d plotting library for Rust with one purpose, to render points in a cartesian
 
 Here are some example outputs from altostratus:
 
-![image](public/grid_stitch.jpg)
+![image](public/alto_collage.png)
 
 
 ## features
