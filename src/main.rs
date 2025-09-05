@@ -1,14 +1,8 @@
-use std::*;
 use process::exit;
+use std::*;
 use time::Duration;
 
-use crossterm::{
-    event,
-    execute,
-    terminal,
-    style,
-    cursor
-};
+use crossterm::{cursor, event, execute, style, terminal};
 
 mod graphics;
 use graphics::*;
@@ -63,7 +57,7 @@ impl CommandState {
 
     fn execute_command(&mut self, point_cloud: &mut PointCloud) -> bool {
         let command = self.buffer.trim();
-        
+
         if command.starts_with("load ") {
             let path = command.strip_prefix("load ").unwrap().trim();
             match PointCloud::from_file(path) {
@@ -72,13 +66,13 @@ impl CommandState {
                         self.error_message = Some("No points found in file".to_string());
                         return false;
                     }
-                    
+
                     // Add new points to existing point cloud
                     point_cloud.points.extend(new_cloud.points);
-                    
+
                     // Regenerate axes based on combined dataset
                     point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
-                    
+
                     self.exit_command_mode();
                     return false; // Don't reset view parameters
                 }
@@ -90,17 +84,17 @@ impl CommandState {
         } else if command == "clear" {
             // Clear all points from the point cloud
             point_cloud.points.clear();
-            
+
             // Regenerate axes (will use minimum length since no points)
             point_cloud.axes = PointCloud::generate_axes_public(&point_cloud.points);
-            
+
             self.exit_command_mode();
             return false; // Don't reset view parameters
         } else if !command.is_empty() {
             self.error_message = Some("Unknown command".to_string());
             return false;
         }
-        
+
         false
     }
 
@@ -114,26 +108,19 @@ impl CommandState {
 }
 
 fn graceful_close() -> ! {
-    execute!(
-        io::stdout(),
-        cursor::Show,
-        event::DisableMouseCapture,
-    ).unwrap();
+    execute!(io::stdout(), cursor::Show, event::DisableMouseCapture,).unwrap();
     terminal::disable_raw_mode().unwrap();
     exit(0)
 }
 
 fn error_close(msg: &dyn fmt::Display) -> ! {
-    execute!(
-        io::stderr(),
-        style::Print(msg)
-    ).unwrap();
+    execute!(io::stderr(), style::Print(msg)).unwrap();
     graceful_close()
 }
 
 fn load_multiple_files(file_paths: &[String]) -> Result<PointCloud, Box<dyn error::Error>> {
     let mut combined_points = Vec::new();
-    
+
     for path in file_paths {
         match PointCloud::from_file(path) {
             Ok(cloud) => {
@@ -150,13 +137,16 @@ fn load_multiple_files(file_paths: &[String]) -> Result<PointCloud, Box<dyn erro
             }
         }
     }
-    
+
     if combined_points.is_empty() {
         return Err("No points found in any of the provided files".into());
     }
-    
+
     let axes = PointCloud::generate_axes_public(&combined_points);
-    Ok(PointCloud { points: combined_points, axes })
+    Ok(PointCloud {
+        points: combined_points,
+        axes,
+    })
 }
 
 fn main() {
@@ -179,16 +169,12 @@ fn main() {
 
 fn run_application(file_paths: Vec<String>) {
     terminal::enable_raw_mode().unwrap();
-    execute!(
-        io::stdout(),
-        cursor::Hide,
-        event::EnableMouseCapture,
-    ).unwrap();
+    execute!(io::stdout(), cursor::Hide, event::EnableMouseCapture,).unwrap();
 
     // Load point cloud(s)
     let mut point_cloud = match load_multiple_files(&file_paths) {
         Ok(cloud) => cloud,
-        Err(error) => error_close(&error)
+        Err(error) => error_close(&error),
     };
 
     if point_cloud.points.is_empty() {
@@ -200,11 +186,7 @@ fn run_application(file_paths: Vec<String>) {
     let diagonal = point_cloud.get_diagonal().max(1.0); // Ensure we don't get zero diagonal
 
     // Setup camera
-    let mut camera = Camera::new(
-        center, 
-        0., 0., 0., 
-        VIEWPORT_DISTANCE, VIEWPORT_FOV,
-    );
+    let mut camera = Camera::new(center, 0., 0., 0., VIEWPORT_DISTANCE, VIEWPORT_FOV);
 
     let mut view_yaw: f32 = std::f32::consts::PI / 2.0;
     let mut view_pitch: f32 = 0.0;
@@ -252,8 +234,8 @@ fn run_application(file_paths: Vec<String>) {
                             let is_ctrl_c = key_event.modifiers == event::KeyModifiers::CONTROL
                                 && key_event.code == event::KeyCode::Char('c');
 
-                            if is_ctrl_c { 
-                                graceful_close() 
+                            if is_ctrl_c {
+                                graceful_close()
                             } else if key_event.code == event::KeyCode::Char('/') {
                                 command_state.enter_command_mode();
                             }
@@ -264,7 +246,6 @@ fn run_application(file_paths: Vec<String>) {
                     event::Event::Mouse(mouse_event) if !command_state.active => {
                         let (x, y) = (mouse_event.column, mouse_event.row);
                         match mouse_event.kind {
-
                             event::MouseEventKind::Down(_) => {
                                 pan_mode = mouse_event.modifiers == event::KeyModifiers::CONTROL;
                                 last_mouse_position.x = x as i32;
@@ -277,8 +258,10 @@ fn run_application(file_paths: Vec<String>) {
                                 pan_mode = mouse_event.modifiers == event::KeyModifiers::CONTROL;
                                 let delta_x = x as f32 - start_mouse_position.x as f32;
                                 let delta_y = start_mouse_position.y as f32 - y as f32;
-                                mouse_speed.0 = delta_x / camera.screen.width as f32 * MOUSE_SPEED_MULTIPLIER;
-                                mouse_speed.1 = delta_y / camera.screen.width as f32 * MOUSE_SPEED_MULTIPLIER;
+                                mouse_speed.0 =
+                                    delta_x / camera.screen.width as f32 * MOUSE_SPEED_MULTIPLIER;
+                                mouse_speed.1 =
+                                    delta_y / camera.screen.width as f32 * MOUSE_SPEED_MULTIPLIER;
                                 last_mouse_position.x = x as i32;
                                 last_mouse_position.y = y as i32;
                                 event_count += 1;
@@ -301,7 +284,7 @@ fn run_application(file_paths: Vec<String>) {
         }
 
         // If no event happened, reset the mouse
-        if event_count == 0 { 
+        if event_count == 0 {
             mouse_speed = (0., 0.);
             pan_mode = false;
         }
@@ -314,16 +297,20 @@ fn run_application(file_paths: Vec<String>) {
 
             // Handle vertical pan
             center_point.y -= mouse_speed.1 * camera.pitch.cos() * diagonal * PAN_MULTIPLIER;
-            center_point.x += mouse_speed.1 * camera.yaw.sin() * camera.pitch.sin() * diagonal * PAN_MULTIPLIER;
-            center_point.z += mouse_speed.1 * camera.yaw.cos() * camera.pitch.sin() * diagonal * PAN_MULTIPLIER;
+            center_point.x +=
+                mouse_speed.1 * camera.yaw.sin() * camera.pitch.sin() * diagonal * PAN_MULTIPLIER;
+            center_point.z +=
+                mouse_speed.1 * camera.yaw.cos() * camera.pitch.sin() * diagonal * PAN_MULTIPLIER;
         } else {
             view_yaw -= mouse_speed.0;
             view_pitch -= mouse_speed.1;
         }
 
         // Update camera position
-        camera.coordinates.z = -view_yaw.cos() * view_pitch.cos() * distance_to_data + center_point.z;
-        camera.coordinates.x = view_yaw.sin() * view_pitch.cos() * distance_to_data + center_point.x;
+        camera.coordinates.z =
+            -view_yaw.cos() * view_pitch.cos() * distance_to_data + center_point.z;
+        camera.coordinates.x =
+            view_yaw.sin() * view_pitch.cos() * distance_to_data + center_point.x;
         camera.coordinates.y = view_pitch.sin() * distance_to_data + center_point.y;
         camera.yaw = -view_yaw;
         camera.pitch = -view_pitch;
@@ -336,7 +323,7 @@ fn run_application(file_paths: Vec<String>) {
         for axis in &point_cloud.axes {
             // Draw main axis line
             camera.plot_line(&axis.axis_line.0, &axis.axis_line.1);
-            
+
             // Draw arrowhead lines
             for (start, end) in &axis.arrowhead_lines {
                 camera.plot_line(start, end);
@@ -349,9 +336,9 @@ fn run_application(file_paths: Vec<String>) {
         }
 
         camera.screen.render();
-        
+
         // Add buffer time to hit 60 fps
-        if let Some(time) = TARGET_DURATION_PER_FRAME.checked_sub(start.elapsed()) { 
+        if let Some(time) = TARGET_DURATION_PER_FRAME.checked_sub(start.elapsed()) {
             thread::sleep(time);
         }
 
@@ -362,12 +349,14 @@ fn run_application(file_paths: Vec<String>) {
             let fps_msg = format!("fps: {:3.0}", 1. / start.elapsed().as_secs_f32());
             let resolution_msg = format!(
                 "resolution: {} x {}",
-                camera.screen.width,
-                camera.screen.height,
+                camera.screen.width, camera.screen.height,
             );
             let points_msg = format!("points: {}", point_cloud.points.len());
 
-            let full_msg = format!("{} | {} | {} | Press '/' for commands", points_msg, resolution_msg, fps_msg);
+            let full_msg = format!(
+                "{} | {} | {} | Press '/' for commands",
+                points_msg, resolution_msg, fps_msg
+            );
             let short_msg = format!("{} | {} | '/' for commands", points_msg, fps_msg);
 
             match terminal::size().unwrap().0 as usize {
@@ -381,6 +370,7 @@ fn run_application(file_paths: Vec<String>) {
             io::stdout(),
             terminal::Clear(terminal::ClearType::CurrentLine),
             style::Print(final_msg),
-        ).unwrap();
+        )
+        .unwrap();
     }
 }

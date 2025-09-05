@@ -1,4 +1,4 @@
-use clap::{Parser, ArgAction};
+use clap::{ArgAction, Parser};
 
 #[derive(Parser)]
 #[command(name = "altostratus")]
@@ -8,11 +8,11 @@ pub struct Args {
     /// Point cloud file to visualize
     #[arg(value_name = "FILE")]
     pub file: Option<String>,
-    
+
     /// Load multiple point cloud files
     #[arg(short = 'f', long = "files", value_name = "FILES", action = ArgAction::Append)]
     pub files: Vec<String>,
-    
+
     /// Show detailed help information
     #[arg(long = "help-detailed", hide = true)]
     pub detailed_help: bool,
@@ -30,23 +30,23 @@ pub fn parse_arguments() -> ParseResult {
     if args.len() == 1 {
         return ParseResult::ShowUsage;
     }
-    
+
     // Check for help flags manually to show our custom help
     if args.len() == 2 && (args[1] == "-h" || args[1] == "--help") {
         return ParseResult::ShowDetailedHelp;
     }
-    
+
     let args = Args::parse();
-    
+
     // Collect all files from both positional and flag arguments
     let mut all_files = Vec::new();
-    
+
     if let Some(file) = args.file {
         all_files.push(file);
     }
-    
+
     all_files.extend(args.files);
-    
+
     if all_files.is_empty() {
         ParseResult::ShowUsage
     } else {
@@ -93,6 +93,6 @@ pub fn print_detailed_help() {
     /load <filepath>: Load additional point cloud file
     /clear: Remove all loaded points from the visualization
 ";
-    
+
     print!("{}", HELP_MSG);
 }
